@@ -1,0 +1,91 @@
+# 公开仓库 ivesyi/seewow-cli 的发布流水线（真源在主仓库 apps/cli/publish/release.yml，
+# 由 scripts/cli/sync-public-repo.mjs 单向同步到公开仓库的 .github/workflows/release.yml）。
+# 只在打 v* 标签时触发；npm 可信发布（OIDC，无长期 npm 令牌），自动带 provenance。
+# npm 上给 @seewow/cli 配可信发布者时填：仓库 ivesyi/seewow-cli、workflow 文件名 release.yml。
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/cli
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install build dependencies (no install scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Tag must match package.json version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "标签 ${GITHUB_REF_NAME} 与 package.json 版本 v${version} 不一致" >&2
+            exit 1
+          fi
+
+      - name: Typecheck
+        run: npx --no-install tsc --noEmit -p tsconfig.json
+
+      - name: Build twice and compare sha256
+        run: |
+          node scripts/build.mjs --outfile "$RUNNER_TEMP/a.mjs"
+          node scripts/build.mjs --outfile "$RUNNER_TEMP/b.mjs"
+          a="$(sha256sum "$RUNNER_TEMP/a.mjs" | cut -d' ' -f1)"
+          b="$(sha256sum "$RUNNER_TEMP/b.mjs" | cut -d' ' -f1)"
+          echo "build a: $a"
+          echo "build b: $b"
+          [ "$a" = "$b" ]
+
+      - name: Prepublish check (leak scan, pack whitelist, reproducible build, clean --help, canary)
+        run: node scripts/prepublish-check.mjs
+
+      - name: Release sha256
+        run: sha256sum dist/seewow.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # npm 可信发布（OIDC）要求 npm >= 11.5.1；Node 24 自带的 npm 可能更旧：低于就升到 npm@11 再断言一次，仍不满足直接失败。
+      - name: Ensure npm >= 11.5.1 for trusted publishing (OIDC)
+        run: |
+          npm_at_least() {
+            node -e '
+              const parse = (v) => v.trim().split("-")[0].split(".").map(Number);
+              const [have, need] = [parse(process.argv[1]), parse(process.argv[2])];
+              for (let i = 0; i < 3; i += 1) { if ((have[i] || 0) !== need[i]) process.exit((have[i] || 0) > need[i] ? 0 : 1); }
+            ' "$(npm --version)" 11.5.1
+          }
+          echo "npm $(npm --version)"
+          if ! npm_at_least; then
+            echo "npm 低于 11.5.1，升级到 npm@11"
+            npm install -g npm@11
+            echo "npm $(npm --version)"
+          fi
+          if ! npm_at_least; then
+            echo "npm $(npm --version) 仍低于 11.5.1，可信发布（OIDC）不可用，停止发布" >&2
+            exit 1
+          fi
+
+      - name: Publish (trusted publishing + provenance)
+        run: npm publish --provenance --access public

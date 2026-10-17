@@ -1,0 +1,39 @@
+{
+  "name": "@seewow/cli",
+  "version": "0.1.0",
+  "description": "Seewow 命令行：授权登录、上传模板草稿、提交审核。",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "bin": {
+    "seewow": "dist/seewow.mjs"
+  },
+  "files": [
+    "dist/seewow.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ivesyi/seewow-cli.git",
+    "directory": "apps/cli"
+  },
+  "homepage": "https://www.seewow.cc",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check": "node scripts/prepublish-check.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "22.19.13",
+    "esbuild": "0.25.12",
+    "typescript": "5.8.3"
+  }
+}
