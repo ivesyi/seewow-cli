@@ -31,7 +31,7 @@ import { ApiClient, normalizeApiUrl } from './http.ts';
 import { registerSecret, tokenDisplay } from './redact.ts';
 import { CLI_CLIENT_NAME, CLI_VERSION } from './version.ts';
 
-const SCOPE_LABELS: Record<CliScope, string> = { 'drafts:write': '读写模板草稿、上传草稿素材', 'drafts:submit': '【直接提交审核】' };
+const SCOPE_LABELS: Record<CliScope, string> = { generate: '生视频、生图片、素材审核（消耗空间积分）', 'drafts:write': '读写模板草稿、上传草稿素材', 'drafts:submit': '【直接提交审核】' };
 const describeScopes = (scopes: readonly CliScope[]) => scopes.map((scope) => SCOPE_LABELS[scope] ?? scope).join('、');
 const describePrincipal = (principal: CliWhoami['principal']) => describePrincipalName(principal);
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -61,8 +61,9 @@ const authorizeUrl = (apiUrl: string, response: CliDeviceCodeResponse): string =
 export async function authLogin(ctx: CommandContext, args: ParsedArgs): Promise<number> {
   const { out } = ctx;
   const profile = assertProfileName(ctx.options.profile);
-  const as = args.flags.as;
-  if (as !== undefined && as !== 'partner' && as !== 'platform') throw usageError('invalid_flag', '--as 只能是 partner 或 platform。');
+  const as = args.flags.generate ? 'space' : args.flags.as;
+  if (args.flags.generate && (args.flags.as || args.flags['no-submit'])) throw usageError('invalid_flag', '--generate 不能与 --as 或 --no-submit 同用。');
+  if (as !== undefined && as !== 'partner' && as !== 'platform' && !(args.flags.generate && as === 'space')) throw usageError('invalid_flag', '--as 只能是 partner 或 platform。');
   const storeFlag = args.flags.store;
   if (storeFlag !== undefined && storeFlag !== 'keychain' && storeFlag !== 'file') throw usageError('invalid_flag', '--store 只能是 keychain 或 file。');
   const store: StoreKind = (storeFlag as StoreKind | undefined) ?? defaultStoreKind();
@@ -80,7 +81,7 @@ export async function authLogin(ctx: CommandContext, args: ParsedArgs): Promise<
 
   const apiUrl = requestedApiUrl(ctx, null);
   const client = new ApiClient({ apiUrl, out });
-  const scopes: CliScope[] = args.flags['no-submit'] ? [CLI_SCOPE_DRAFTS_WRITE] : [...CLI_DEFAULT_SCOPES];
+  const scopes: CliScope[] = args.flags.generate ? ['generate'] : args.flags['no-submit'] ? [CLI_SCOPE_DRAFTS_WRITE] : [...CLI_DEFAULT_SCOPES];
   const codeBody: Record<string, unknown> = { scopes, clientName: CLI_CLIENT_NAME, clientVersion: CLI_VERSION, hostname: hostname().slice(0, 128) };
   if (as) codeBody.principal = as;
   const { data: device } = await client.json<CliDeviceCodeResponse>('POST', '/api/cli/device/code', { body: codeBody, auth: false });
@@ -97,7 +98,7 @@ export async function authLogin(ctx: CommandContext, args: ParsedArgs): Promise<
     '请在任意已登录 Seewow 的手机或电脑打开：',
     `  ${url}`,
     `或打开 ${device.verificationUri || url.split('?')[0]} 输入确认码：${device.userCode}（${minutes} 分钟内有效）`,
-    `这次申请的权限：${describeScopes(device.requestedScopes ?? scopes)}${as ? `；身份：${as === 'platform' ? '平台自营' : '合作伙伴'}` : ''}`,
+    `这次申请的权限：${describeScopes(device.requestedScopes ?? scopes)}${as ? `；身份：${as === 'space' ? '工作空间' : as === 'platform' ? '平台自营' : '合作伙伴'}` : ''}`,
     '等待确认中…（Ctrl+C 取消）',
   ].join('\n'));
   if (!ctx.options.json && !args.flags['no-browser'] && !ctx.env.SEEWOW_NO_BROWSER) tryOpenBrowser(url);
@@ -168,7 +169,7 @@ export async function authLogin(ctx: CommandContext, args: ParsedArgs): Promise<
   out.result({
     profile, apiUrl, store, storeLocation: storeLocation(record, ctx.env), tokenPrefix: record.tokenPrefix, tokenId: record.tokenId,
     expiresAt: record.expiresAt, scopes: record.scopes, principal: record.principal, user: record.user,
-  }, `✓ 已授权：${record.user.name ?? record.user.id}（${describePrincipal(record.principal)}），${canSubmit ? '可提交审核' : '只能读写草稿（不能提交审核）'}，令牌 ${record.tokenPrefix}… ${record.expiresAt} 过期（存放：${storeLocation(record, ctx.env)}）`);
+  }, `✓ 已授权：${record.user.name ?? record.user.id}（${describePrincipal(record.principal)}），${issued.scopes.includes('generate') ? '可生视频、生图片和素材审核，按实际消耗扣积分' : canSubmit ? '可提交审核' : '只能读写草稿（不能提交审核）'}，令牌 ${record.tokenPrefix}… ${record.expiresAt} 过期（存放：${storeLocation(record, ctx.env)}）`);
   return EXIT.OK;
 }
 

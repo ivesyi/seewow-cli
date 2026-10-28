@@ -1,5 +1,5 @@
 {
-  "sourceCommit": "7227bf2df2c708b5a0761de30abb8e0233df7d6c",
+  "sourceCommit": "7aae6e120754a2a0128896af9c751b5abc7124d2",
   "files": [
     ".github/workflows/release.yml",
     "apps/cli/.gitignore",
@@ -15,6 +15,7 @@
     "apps/cli/src/context.ts",
     "apps/cli/src/credentials.ts",
     "apps/cli/src/errors.ts",
+    "apps/cli/src/generateCommands.ts",
     "apps/cli/src/http.ts",
     "apps/cli/src/main.ts",
     "apps/cli/src/output.ts",

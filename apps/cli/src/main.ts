@@ -1,3 +1,4 @@
+import { generationCreate, generationStatus, generationModels, generationUsage, assetAudit, generationFlags } from './generateCommands.ts';
 // seewow 命令行入口。第一行先装脱敏层（S10），之后任何输出都经过它。
 import { parseArgs, type FlagSpec } from './args.ts';
 import { authLogin, authLogout, authStatus } from './authCommands.ts';
@@ -14,10 +15,18 @@ type CommandDef = { flags: FlagSpec; usage: string; run: (ctx: CommandContext, a
 
 const COMMANDS: Record<string, CommandDef> = {
   'auth login': {
-    flags: { 'no-submit': 'boolean', as: 'string', store: 'string', 'no-browser': 'boolean' },
-    usage: 'seewow auth login [--no-submit] [--as partner|platform] [--store keychain|file] [--no-browser]',
+    flags: { generate: 'boolean', 'no-submit': 'boolean', as: 'string', store: 'string', 'no-browser': 'boolean' },
+    usage: 'seewow auth login [--generate] [--no-submit] [--as partner|platform] [--store keychain|file] [--no-browser]',
     run: authLogin,
   },
+  'video create': { flags: generationFlags, usage: 'seewow video create --model <模型> [--prompt 文本] [--json-body 请求.json] [--no-wait] [--download 目录]', run: (ctx, args) => generationCreate(ctx, args, 'video') },
+  'image create': { flags: generationFlags, usage: 'seewow image create --model <模型> [--prompt 文本] [--json-body 请求.json] [--no-wait] [--download 目录]', run: (ctx, args) => generationCreate(ctx, args, 'image') },
+  'video status': { flags: {}, usage: 'seewow video status <id>', run: (ctx, args) => generationStatus(ctx, args, 'video') },
+  'image status': { flags: {}, usage: 'seewow image status <id>', run: (ctx, args) => generationStatus(ctx, args, 'image') },
+  'asset status': { flags: {}, usage: 'seewow asset status <id>', run: (ctx, args) => generationStatus(ctx, args, 'asset-audit') },
+  'asset audit': { flags: { type: 'string', 'no-wait': 'boolean' }, usage: 'seewow asset audit <url> [--type image|video] [--no-wait]', run: assetAudit },
+  usage: { flags: { since: 'string', cursor: 'string' }, usage: 'seewow usage [--since 时间] [--cursor 游标] [--json]', run: generationUsage },
+  models: { flags: {}, usage: 'seewow models', run: (ctx) => generationModels(ctx) },
   'auth status': { flags: {}, usage: 'seewow auth status', run: (ctx) => authStatus(ctx) },
   'auth logout': { flags: {}, usage: 'seewow auth logout', run: (ctx) => authLogout(ctx) },
   'template init': { flags: {}, usage: 'seewow template init <目录>', run: templateInit },
@@ -52,6 +61,7 @@ ${Object.values(COMMANDS).map((command) => `  ${command.usage}`).join('\n')}
 环境变量 SEEWOW_TOKEN 优先于本机存放的令牌（给 CI/沙箱用，注意别打印它）。`;
 
 const commandKey = (positionals: string[]): string | null => {
+  if (['usage','models'].includes(positionals[0])) return positionals[0];
   if (positionals.length < 2) return null;
   const key = `${positionals[0]} ${positionals[1]}`;
   return COMMANDS[key] ? key : null;
@@ -88,7 +98,7 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
       process.stdout.write(`用法：${def.usage}\n`);
       return EXIT.OK;
     }
-    args.positionals.splice(0, 2);
+    args.positionals.splice(0, ['usage','models'].includes(key) ? 1 : 2);
     const ctx: CommandContext = {
       out,
       env,

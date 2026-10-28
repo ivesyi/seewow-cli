@@ -3,12 +3,13 @@ import { usageError } from './errors.ts';
 
 export type FlagType = 'boolean' | 'string';
 export type FlagSpec = Record<string, FlagType>;
-export type ParsedArgs = { positionals: string[]; flags: Record<string, string | boolean> };
+export type ParsedArgs = { positionals: string[]; flags: Record<string, string | boolean>; repeated?: Record<string, string[]> };
 
 const SHORT: Record<string, string> = { h: 'help', v: 'version', y: 'yes', q: 'quiet' };
 
 export const parseArgs = (argv: string[], spec: FlagSpec): ParsedArgs => {
   const positionals: string[] = [];
+  const repeated: Record<string, string[]> = {};
   const flags: Record<string, string | boolean> = {};
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -29,6 +30,7 @@ export const parseArgs = (argv: string[], spec: FlagSpec): ParsedArgs => {
         if (value === undefined || (eq < 0 && value.startsWith('--'))) throw usageError('missing_flag_value', `--${name} 需要一个值。`);
         if (eq < 0) index += 1;
         flags[name] = value;
+        (repeated[name] ??= []).push(value);
       }
       continue;
     }
@@ -41,5 +43,5 @@ export const parseArgs = (argv: string[], spec: FlagSpec): ParsedArgs => {
     if (arg.startsWith('-') && arg !== '-') throw usageError('unknown_flag', `不认识的参数：${arg}`, '运行 seewow --help 查看用法。');
     positionals.push(arg);
   }
-  return { positionals, flags };
+  return { positionals, flags, repeated };
 };

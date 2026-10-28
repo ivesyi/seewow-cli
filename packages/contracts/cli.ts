@@ -6,18 +6,18 @@
  * 用户端确认页（T4）需要时在 scripts/gen-shared-contracts.mjs 登记并生成到 apps/ui。
  */
 
-/** 令牌权限两档：草稿读写（必带）+ 提审/撤回。不存在的能力一律没有。 */
-export const CLI_SCOPES = ['drafts:write', 'drafts:submit'] as const;
+/** 草稿权限为读写与提审；生成权限独立签发，不能与草稿权限混用。 */
+export const CLI_SCOPES = ['drafts:write', 'drafts:submit', 'generate'] as const;
 export type CliScope = (typeof CLI_SCOPES)[number];
 export const CLI_SCOPE_DRAFTS_WRITE: CliScope = 'drafts:write';
 export const CLI_SCOPE_DRAFTS_SUBMIT: CliScope = 'drafts:submit';
 /** 默认两档都申请（owner 决策 2）；`auth login --no-submit` 只申请草稿档。 */
-export const CLI_DEFAULT_SCOPES: readonly CliScope[] = CLI_SCOPES;
+export const CLI_DEFAULT_SCOPES: readonly CliScope[] = [CLI_SCOPE_DRAFTS_WRITE, CLI_SCOPE_DRAFTS_SUBMIT];
 export const isCliScope = (value: unknown): value is CliScope =>
   typeof value === 'string' && (CLI_SCOPES as readonly string[]).includes(value);
 
-/** 一把令牌只代表一个主体：伙伴（绑 partnerChannelId）或平台自营池。签发时冻结。 */
-export const CLI_PRINCIPAL_KINDS = ['partner', 'platform'] as const;
+/** 一把令牌只代表一个主体：伙伴、平台自营草稿池或付费工作空间。签发时冻结。 */
+export const CLI_PRINCIPAL_KINDS = ['partner', 'platform', 'space'] as const;
 export type CliPrincipalKind = (typeof CLI_PRINCIPAL_KINDS)[number];
 export const isCliPrincipalKind = (value: unknown): value is CliPrincipalKind =>
   typeof value === 'string' && (CLI_PRINCIPAL_KINDS as readonly string[]).includes(value);
@@ -63,7 +63,8 @@ export type CliDeviceTokenError = (typeof CLI_DEVICE_TOKEN_ERRORS)[number];
 
 export type CliPrincipal =
   | { kind: 'partner'; partnerChannelId: string; name: string }
-  | { kind: 'platform'; name: string };
+  | { kind: 'platform'; name: string }
+  | { kind: 'space'; workspaceId: string; name: string };
 
 /** POST /api/cli/device/code 的响应。deviceCode 只在这里出现一次。 */
 export type CliDeviceCodeResponse = {
@@ -106,8 +107,8 @@ export type CliDeviceReview = {
   cannotApproveReason: string | null;
 };
 
-/** POST /api/cli/device/:userCode/approve 入参：scopes 只能是申请的子集且必含 drafts:write（只能减不能加）。 */
-export type CliDeviceApproveRequest = { principal: CliPrincipalKind; scopes?: CliScope[] };
+/** POST /api/cli/device/:userCode/approve 入参：scopes 只能是申请的子集；草稿必含 drafts:write，生成仅含 generate。 */
+export type CliDeviceApproveRequest = { principal: CliPrincipalKind; workspaceId?: string; scopes?: CliScope[] };
 
 /** GET /api/cli/tokens 列表项。 */
 export type CliAccessTokenSummary = {

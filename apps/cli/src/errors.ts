@@ -68,7 +68,7 @@ export const exitCodeForApiError = (status: number, code: string | undefined): E
   if (CONFLICT_CODES.has(c) || status === 409) return EXIT.CONFLICT;
   if (status >= 500 || status === 0) return EXIT.NETWORK;
   if (status === 404 && c === 'not_found') return EXIT.PERMISSION;
-  if (VALIDATION_CODES.has(c) || status === 400 || status === 413 || status === 422) return EXIT.VALIDATION;
+  if (VALIDATION_CODES.has(c) || status === 402 || status === 400 || status === 413 || status === 422) return EXIT.VALIDATION;
   return EXIT.UNKNOWN;
 };
 
@@ -85,6 +85,7 @@ export const cliWording = (message: string): string =>
 
 /** 主体展示：平台主体名字本身就是「平台自营」时不再括号重复。 */
 export const describePrincipalName = (principal: { kind: string; name: string }): string => {
+  if (principal.kind === 'space') return `工作空间：${principal.name}`;
   if (principal.kind !== 'platform') return `伙伴：${principal.name}`;
   return principal.name && principal.name !== '平台自营' ? `平台自营（${principal.name}）` : '平台自营';
 };

@@ -5,7 +5,7 @@ Seewow 命令行：在终端里授权登录、把模板草稿（脚本、台词�
 
 - 单文件、零运行时依赖，需要 Node.js 20 及以上。
 - 不会自动更新，运行时不下载任何代码。每个版本都由公开仓库的 GitHub Actions 发布，带 npm provenance。
-- 上架仍由 Seewow 运营在管理端审核、填写模型与定价；命令行只能管草稿和提审。
+- 上架仍由 Seewow 运营在管理端审核、填写模型与定价；草稿授权只用于草稿和提审，生成消费另行授权。
 
 ## 安装与运行
 
@@ -151,3 +151,20 @@ seewow template show <草稿id|目录>
 - `field_not_allowed`：清单里有不该出现的字段，按提示删掉。
 - `network_error`（退出码 7）：在沙箱或公司网络里运行时，请放行 `api.seewow.cc`（HTTPS 443）。
 - `rate_limited` / `cli_quota_exceeded`（退出码 8）：按 `retryAfter` 秒数稍后再试。
+
+## 生视频、生图片和素材审核
+
+```bash
+seewow auth login --generate
+seewow models
+seewow video create --model doubao_seedance_2_mini --prompt '一只橘猫在窗台上伸懒腰' --resolution 480p --duration 4 --download ./成片
+seewow image create --model doubao_seedream_5_pro --prompt '一只橘猫，白色背景' --download ./图片
+seewow asset audit https://example.com/参考.jpg --type image
+seewow usage --since 2026-10-26 --json
+```
+
+网页核对确认码并选择付费工作空间。生成权限与草稿权限分开授权，可用不同 `--profile` 保存。需要该空间的自由创作权限。
+
+`--image URL`、`--video URL`、`--audio-url URL` 可重复，顺序保留；`--audio` / `--no-audio` 控制视频声音。`--json-body 请求.json` 接收可定价的原生请求体，提示词与参数原样发送，不能与模型或内容参数混用。默认等待完成，`--no-wait` 只提交，随后 `video status <id>` / `image status <id>` / `asset status <id>` 查询。
+
+提交前冻结积分，成功按实际消耗结算，多退少补，明确失败全退。Pro首张实际参考免费，其余收费参考单价尚未核实，目前按每张0.36元成本上界补收并与已知成本分列。缺实际用量时保留冻结，不拿冻结额当实收。`needs_reconcile` 保留冻结，请将任务id交给管理员核对，避免重复提交。失败会显示中文原因，排队满请稍后重试。在网页设置「已授权的 Seewow CLI」可撤销对应机器/空间令牌，或运行 `seewow auth logout`。关掉终端不取消任务。结果链接有时效，请及时 `--download` 保存；下载不携带账号令牌。

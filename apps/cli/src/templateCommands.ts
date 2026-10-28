@@ -44,7 +44,7 @@ type Detail = TemplateSubmissionDetail;
 const DRAFT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const draftPath = (id: string, suffix = '') => `${CLI_TEMPLATE_DRAFTS_PATH}/${encodeURIComponent(id)}${suffix}`;
 const statusLabel = (status: string) => TEMPLATE_SUBMISSION_STATUS_LABELS[status as TemplateSubmissionStatus] ?? status;
-export const principalKeyOf = (principal: CliWhoami['principal']) => (principal.kind === 'platform' ? 'platform' : `partner:${principal.partnerChannelId}`);
+export const principalKeyOf = (principal: CliWhoami['principal']) => (principal.kind === 'platform' ? 'platform' : principal.kind === 'space' ? `space:${principal.workspaceId}` : `partner:${principal.partnerChannelId}`);
 
 const EMPTY_MANIFEST: Manifest = {
   title: '', industryId: '', catalogIndustryId: null, categoryId: null, script: '', lines: [], slots: [], sampleVideo: null, cover: null, remark: '',
